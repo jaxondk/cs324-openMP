@@ -26,6 +26,15 @@
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/time.h>
+
+
+double When()
+{
+  struct timeval tp;
+  gettimeofday(&tp, NULL);
+  return ((double) tp.tv_sec + (double) tp.tv_usec * 1e-6);
+}
 
 int main(int argc, char* argv[])
 {
@@ -79,6 +88,9 @@ int main(int argc, char* argv[])
       }
   }
 
+
+  double start = When();
+  #pragma omp parallel for private(i,j,k,y,x,u,v)
   for (j = 0; j < yres; j++) {
     y = ymax - j * dy;
     for(i = 0; i < xres; i++) {
@@ -114,6 +126,8 @@ int main(int argc, char* argv[])
       };
     }
   }
+  double stop = When();
+  printf("Computation time: %f\n", stop - start);
 
   //write result to file
   for(int j = 0; j < yres; j++) {
