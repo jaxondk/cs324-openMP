@@ -90,7 +90,7 @@ int main(int argc, char* argv[])
 
 
   double start = When();
-  #pragma omp parallel for private(i,j,k,y,x,u,v)
+  #pragma omp parallel for private(i,j,k,y,x,u,v) schedule(runtime)
   for (j = 0; j < yres; j++) {
     y = ymax - j * dy;
     for(i = 0; i < xres; i++) {
