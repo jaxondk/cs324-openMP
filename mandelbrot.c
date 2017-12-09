@@ -21,13 +21,23 @@
   can do. It can do a lot.
 */
 
+
+/* COMPUTATION TIMES - each time is the average of 10 iterations
+    1 thread: 28.714
+    2 threads: 14.784
+    4 threads: 7.812
+    8 threads: 7.839
+
+    If you want to run it, just make the desired number of threads the last argument
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
 #include <sys/time.h>
-
+#include <omp.h>
 
 double When()
 {
@@ -39,9 +49,9 @@ double When()
 int main(int argc, char* argv[])
 {
   /* Parse the command line arguments. */
-  if (argc != 8) {
-    printf("Usage:   %s <xmin> <xmax> <ymin> <ymax> <maxiter> <xres> <out.ppm>\n", argv[0]);
-    printf("Example: %s 0.27085 0.27100 0.004640 0.004810 1000 1024 pic.ppm\n", argv[0]);
+  if (argc != 8 && argc != 9) {
+    printf("Usage:   %s <xmin> <xmax> <ymin> <ymax> <maxiter> <xres> <out.ppm> [<nthreads>]\n", argv[0]);
+    printf("Example: %s 0.27085 0.27100 0.004640 0.004810 1000 1024 pic.ppm 8\n", argv[0]);
     exit(EXIT_FAILURE);
   }
 
@@ -80,17 +90,17 @@ int main(int argc, char* argv[])
   int k; /* Iteration counter */
 
   //Initialize result array
-  unsigned char ***result = (unsigned char***)malloc(xres*sizeof(unsigned char**));
+  int **result = (int**)malloc(xres*sizeof(int*));
   for (int i = 0; i < xres; i++) {
-      result[i] = (unsigned char**)malloc(yres*sizeof(unsigned char*));
-      for(int j = 0; j < yres; j++) {
-          result[i][j] = (unsigned char *)malloc(6*sizeof(unsigned char));
-      }
+      result[i] = (int*)malloc(yres*sizeof(int));
   }
 
+  if((argc == 9))
+    omp_set_num_threads(atoi(argv[8]));
 
   double start = When();
-  #pragma omp parallel for private(i,j,k,y,x,u,v) schedule(runtime)
+  // for (size_t i = 0; i < 10; i++) { //for calculating times with different number of threads
+  #pragma omp parallel for private(i,j,k,y,x,u,v) schedule(dynamic,4)
   for (j = 0; j < yres; j++) {
     y = ymax - j * dy;
     for(i = 0; i < xres; i++) {
@@ -107,32 +117,32 @@ int main(int argc, char* argv[])
             v2 = v * v;
       };
 
-      /* compute  pixel color and write it to file */
-      if (k >= maxiter) {
-        /* interior */
-        const unsigned char black[] = {0, 0, 0, 0, 0, 0};
-        memcpy (result[i][j], black, 6);
-      }
-      else {
-        /* exterior */
-        unsigned char color[6];
-        color[0] = k >> 8;
-        color[1] = k & 255;
-        color[2] = k >> 8;
-        color[3] = k & 255;
-        color[4] = k >> 8;
-        color[5] = k & 255;
-        memcpy (result[i][j], color, 6);
-      };
+
+      result[i][j] = k;
     }
   }
+  // }
   double stop = When();
-  printf("Computation time: %f\n", stop - start);
+  // printf("Average Computation time for %s threads: %f\n", argv[8], (stop - start)/10);
+  printf("Computation time %f\n", stop - start);
 
   //write result to file
+  const unsigned char black[] = {0, 0, 0, 0, 0, 0};
+  unsigned char color[6];
   for(int j = 0; j < yres; j++) {
       for (int i = 0; i < xres; i++) {
-          fwrite(result[i][j], 6, 1, fp);
+          if (k >= maxiter) {
+              fwrite(black, 6, 1, fp);
+          }
+          else {
+              color[0] = result[i][j] >> 8;
+              color[1] = result[i][j] & 255;
+              color[2] = result[i][j] >> 8;
+              color[3] = result[i][j] & 255;
+              color[4] = result[i][j] >> 8;
+              color[5] = result[i][j] & 255;
+              fwrite(color, 6, 1, fp);
+          }
       }
   }
   fclose(fp);
